@@ -4,7 +4,7 @@
 
 FastVisionOps unifies image preprocessing and non-maximum suppression behind
 one validated NumPy reference layer and one rebuildable C backend. The current
-suite has 40 named tests, including randomized native equivalence, malformed
+suite has 41 named tests, including randomized native equivalence, malformed
 input handling, noncontiguous images, empty batches, deterministic score ties,
 and concurrent NMS execution.
 
