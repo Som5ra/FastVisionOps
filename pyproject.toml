@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nmss"
+name = "fastvisionops"
 version = "1.0.0"
-description = "Fast NumPy and C implementations of bounding-box and mask NMS"
+description = "Validated NumPy and native operations for vision inference"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.23"]
@@ -22,7 +22,7 @@ classifiers = [
 dev = ["pytest>=7", "pytest-cov>=4"]
 
 [tool.setuptools.packages.find]
-include = ["nmss*"]
+include = ["fastvisionops*", "nmss*"]
 
 [tool.setuptools.package-data]
 nmss = ["csrc/*.c"]
