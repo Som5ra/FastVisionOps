@@ -1,7 +1,7 @@
 # Legacy C API
 
 This directory preserves the original `Batch_Parallel_Nms` import path.
-Maintained native code now lives in `fastvisionops/csrc`, and the shared
+Maintained native code now lives in `fastvisionops/native/csrc`, and the shared
 library is rebuilt locally:
 
 ```bash
@@ -24,6 +24,6 @@ batch_indices, batch_class_ids = backend.batch_parallel_nms(
 ```
 
 New code should use `fastvisionops.NativeBackend`. See the
-[root README](../README.md) and
-[evaluation report](../docs/evaluation.md) for the current API and verified
+[root README](../../README.md) and
+[evaluation report](../../docs/evaluation.md) for the current API and verified
 benchmark.
