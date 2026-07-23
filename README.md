@@ -187,7 +187,7 @@ python -m fastvisionops.build
 python -m unittest discover -s tests -v
 ```
 
-The 37 tests cover:
+The 40 tests cover:
 
 - exact and randomized preprocessing equivalence;
 - RGB/BGR reversal, batches, empty batches, and noncontiguous images;
