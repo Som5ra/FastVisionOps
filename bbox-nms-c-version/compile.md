@@ -1,5 +1,16 @@
+# Native build
+
+The supported build entry point is:
+
 ```bash
-gcc -O3 -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 -fopenmp -fPIC -shared -o c/compiled/batch_parallel_nms.so c/batch_parallel_nms.c 
+python -m nmss.build
 ```
 
+Use a different compiler or output path when required:
 
+```bash
+python -m nmss.build --compiler clang --output /tmp/libnmss.so
+```
+
+The builder compiles `nmss/csrc/nms.c` with optimized, reproducible flags and
+reports compiler errors directly.
