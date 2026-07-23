@@ -104,6 +104,24 @@ class BoundingBoxNmsTests(unittest.TestCase):
         self.assertEqual(indices.size, 0)
         self.assertEqual(classes.size, 0)
 
+    def test_empty_class_unaware_input_still_validates_arguments(self):
+        boxes = np.empty((0, 4))
+        scores = np.empty((0, 2))
+        invalid_cases = [
+            {"score_threshold": -0.1},
+            {"iou_threshold": 1.1},
+            {"offset": 0.5},
+            {"max_detections": -1},
+        ]
+        for arguments in invalid_cases:
+            with self.subTest(arguments=arguments):
+                with self.assertRaises(ValueError):
+                    multiclass_nms_class_unaware(
+                        boxes,
+                        scores,
+                        **arguments,
+                    )
+
     def test_invalid_input_is_rejected(self):
         invalid_cases = [
             lambda: nms(np.zeros((2, 5)), np.ones(2)),

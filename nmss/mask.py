@@ -23,6 +23,8 @@ def mask_iou(mask: ArrayLike, masks: ArrayLike) -> NDArray[np.float64]:
             "mask spatial shape must match masks, "
             f"got {mask_array.shape} and {masks_array.shape[1:]}"
         )
+    if len(masks_array) == 0:
+        return np.empty(0, dtype=np.float64)
     flattened = masks_array.reshape(len(masks_array), -1)
     mask_flattened = mask_array.reshape(-1)
     intersection = np.count_nonzero(flattened & mask_flattened, axis=1)

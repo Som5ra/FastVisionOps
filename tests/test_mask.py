@@ -21,6 +21,13 @@ class MaskNmsTests(unittest.TestCase):
         masks = np.zeros((2, 3, 3), dtype=bool)
         np.testing.assert_array_equal(mask_iou(masks[0], masks), [0.0, 0.0])
 
+    def test_empty_comparison_batch_returns_empty_iou(self):
+        mask = np.zeros((3, 3), dtype=bool)
+        masks = np.empty((0, 3, 3), dtype=bool)
+        actual = mask_iou(mask, masks)
+        self.assertEqual(actual.dtype, np.float64)
+        self.assertEqual(actual.size, 0)
+
     def test_mask_nms_suppresses_overlap(self):
         actual = mask_nms(self.masks, self.scores, 0.5, 0.5)
         np.testing.assert_array_equal(actual, [0, 2])

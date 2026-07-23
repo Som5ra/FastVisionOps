@@ -158,6 +158,11 @@ def multiclass_nms_class_unaware(
     """Assign each box to its best class, then suppress across all classes."""
     boxes_array = validate_boxes(boxes)
     scores_array = validate_scores(scores, len(boxes_array), ndim=2)
+    score_threshold = validate_threshold("score_threshold", score_threshold)
+    iou_threshold = validate_threshold("iou_threshold", iou_threshold)
+    offset = validate_offset(offset)
+    if max_detections is not None and max_detections < 0:
+        raise ValueError("max_detections must be non-negative or None")
     if len(boxes_array) == 0:
         empty = np.empty(0, dtype=np.int64)
         return empty, empty.copy()
