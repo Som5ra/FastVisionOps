@@ -108,6 +108,22 @@ class CBackendTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "workers"):
             self.backend.batch_multiclass_nms([], [], workers=0)
 
+    def test_empty_batch_still_validates_nms_arguments(self):
+        invalid_cases = [
+            {"score_threshold": -0.1},
+            {"iou_threshold": 1.1},
+            {"offset": 0.5},
+            {"max_detections": 1.5},
+        ]
+        for arguments in invalid_cases:
+            with self.subTest(arguments=arguments):
+                with self.assertRaises(ValueError):
+                    self.backend.batch_multiclass_nms(
+                        [],
+                        [],
+                        **arguments,
+                    )
+
     def test_missing_library_has_actionable_error(self):
         with self.assertRaisesRegex(FileNotFoundError, "fastvisionops.build"):
             CBackend("/definitely/missing/libnmss.so")

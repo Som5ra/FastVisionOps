@@ -157,6 +157,12 @@ class NativeBackend:
     ) -> list[tuple[NDArray[np.int64], NDArray[np.int64]]]:
         """Run independent images concurrently."""
         validate_batch(boxes, scores)
+        score_threshold = validate_threshold(
+            "score_threshold", score_threshold
+        )
+        iou_threshold = validate_threshold("iou_threshold", iou_threshold)
+        offset = validate_offset(offset)
+        max_detections = validate_max_detections(max_detections)
         if workers is None:
             workers = min(max(len(boxes), 1), os.cpu_count() or 1)
         if (
