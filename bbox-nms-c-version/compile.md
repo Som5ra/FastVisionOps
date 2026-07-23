@@ -3,14 +3,14 @@
 The supported build entry point is:
 
 ```bash
-python -m nmss.build
+python -m fastvisionops.build
 ```
 
 Use a different compiler or output path when required:
 
 ```bash
-python -m nmss.build --compiler clang --output /tmp/libnmss.so
+python -m fastvisionops.build --compiler clang --output /tmp/libfastvisionops.so
 ```
 
-The builder compiles `nmss/csrc/nms.c` with optimized, reproducible flags and
-reports compiler errors directly.
+The builder compiles `fastvisionops/csrc/vision_ops.c` with optimized,
+reproducible flags and reports compiler errors directly.

@@ -1,55 +1,61 @@
-# NMSs Evaluation Report
+# FastVisionOps Evaluation Report
 
 ## Executive summary
 
-The repository now has one validated NumPy reference implementation, one
-rebuildable C backend, deterministic output rules, and automated coverage for
-bounding-box, mask, multiclass, empty-input, invalid-input, and batch behavior.
+FastVisionOps unifies image preprocessing and non-maximum suppression behind
+one validated NumPy reference layer and one rebuildable C backend. The current
+suite has 37 named tests, including randomized native equivalence, malformed
+input handling, noncontiguous images, empty batches, deterministic score ties,
+and concurrent NMS execution.
 
-On the evaluation host, the native implementation was **4.87x to 17.16x
-faster** than the NumPy reference for 250 to 2,500 boxes. Processing eight
-images concurrently was **1.72x faster** than serial C execution in the recorded
-run. Every native result was checked against the Python reference before its
-timing was accepted.
+On the evaluation host:
+
+- fused preprocessing of one 427×640×3 image took **4.492 ms in NumPy** and
+  **0.249 ms natively**, an **18.07x speedup**;
+- a batch of 32 images took **139.105 ms in NumPy** and **9.758 ms natively**,
+  a **14.25x speedup**;
+- native bbox NMS was **4.40x to 17.66x faster** for 250 to 2,500 boxes; and
+- eight 1,000-box images took **27.595 ms serially** and **9.995 ms with eight
+  workers**, a **2.76x throughput speedup**.
+
+Every native result was compared with its NumPy reference before timing.
 
 ## What was evaluated
 
-| Area | Evaluation |
+| Area | Evidence |
 | --- | --- |
+| Image preprocessing | Exact NumPy reference, randomized shapes, RGB/BGR reversal, single and batched calls |
+| Image memory behavior | C-contiguous output, noncontiguous input, empty batch |
+| Preprocessing validation | uint8 dtype, dimensions, channel count, mean/std shape and finiteness, nonzero std, thread count |
 | Single-class bbox NMS | Known examples, stable ties, inclusive score threshold, both coordinate offsets |
 | Multiclass bbox NMS | Class-aware and class-unaware behavior, global score ordering |
-| Mask NMS | IoU, suppression, empty masks, multiclass output |
-| Native backend | 128 randomized parameter combinations against NumPy |
-| Batch execution | Serial and concurrent native outputs compared item by item |
-| Defensive behavior | Invalid shapes, coordinates, thresholds, dtypes, and library paths |
+| Mask NMS | IoU, suppression, empty comparison batches, empty masks, multiclass output |
+| Native NMS | 128 randomized parameter combinations against NumPy |
+| Batch NMS | Serial and concurrent native outputs compared item by item |
+| Packaging | Source wheel build and bundled native C source |
+| C quality | GCC build with `-Wall -Wextra -Werror` |
 
-The test suite contains 21 named tests. The randomized native equivalence test
-combines:
+The randomized native NMS matrix combines four input sizes, two coordinate
+offsets, four score thresholds, and four IoU thresholds:
 
-- four input sizes: 0, 1, 32, and 257 boxes;
-- both continuous (`offset=0`) and inclusive-pixel (`offset=1`) coordinates;
-- four score thresholds: 0.0, 0.25, 0.8, and 1.0; and
-- four IoU thresholds: 0.0, 0.3, 0.7, and 1.0.
+$$4 \times 2 \times 4 \times 4 = 128$$
 
-## Performance methodology
+## Benchmark methodology
 
-The benchmark uses deterministic synthetic `xyxy` boxes:
+Both benchmark runners:
 
-- random seed: 42;
-- image extent: 640 × 640;
-- box sizes: uniformly sampled from 10 to 160;
-- score threshold: 0.25;
-- IoU threshold: 0.5;
-- warm-up iterations: 2; and
-- measured iterations: 9, reported as the median wall-clock duration.
+1. generate deterministic inputs from a fixed seed;
+2. execute NumPy and native implementations;
+3. assert equivalent output;
+4. perform two untimed warm-up iterations; and
+5. report the median of nine wall-clock measurements using
+   `time.perf_counter_ns`.
 
-Both measurements include public API validation and array preparation. The
-script checks that C and NumPy return identical indices before measuring.
-Native code is rebuilt from `nmss/csrc/nms.c` using:
-
-```text
--O3 -std=c11 -DNDEBUG -fPIC -shared -lm
-```
+The reported durations include public API validation, output allocation, and
+necessary array preparation. They are operation latency, not kernel-only time.
+No speedup assertion is used in CI because shared-runner timing thresholds are
+inherently noisy; CI smoke-tests both runners, while correctness is enforced by
+the test suite.
 
 ### Evaluation environment
 
@@ -61,54 +67,113 @@ Native code is rebuilt from `nmss/csrc/nms.c` using:
 | Python | 3.12.13 |
 | NumPy | 2.3.5 |
 | Compiler | GCC 13.3.0 |
+| Native optimization | `-O3 -DNDEBUG`, OpenMP enabled |
 
-### Recorded results
+The native source is compiled with:
 
-| Boxes | Boxes kept | NumPy (ms) | C (ms) | C speedup |
+```text
+-O3 -std=c11 -DNDEBUG -fPIC -shared -fopenmp -lm
+```
+
+If OpenMP compilation fails, the builder retries without `-fopenmp`.
+
+## Recorded preprocessing results
+
+Configuration:
+
+- input dtype and layout: contiguous uint8 NHWC;
+- image shape: 427×640×3;
+- batch sizes: 1, 8, and 32;
+- native threads: 8;
+- mean: `[123.675, 116.28, 103.53]`;
+- std: `[58.395, 57.12, 57.375]`; and
+- seed: 42, incremented once per batch-size case.
+
+| Batch | NumPy median (ms) | Native median (ms) | Speedup |
+| ---: | ---: | ---: | ---: |
+| 1 | 4.492 | 0.249 | 18.07x |
+| 8 | 26.263 | 1.888 | 13.91x |
+| 32 | 139.105 | 9.758 | 14.25x |
+
+The benchmark measures the fused HWC-to-CHW conversion and channel
+normalization path. This is the operation that avoids an intermediate
+transposed array and benefits from native parallel execution.
+
+## Recorded bbox NMS results
+
+Configuration:
+
+- random seed: 42;
+- image extent: 640×640;
+- box sizes: uniformly sampled from 10 to 160;
+- score threshold: 0.25; and
+- IoU threshold: 0.5.
+
+| Boxes | Boxes kept | NumPy median (ms) | Native median (ms) | Speedup |
 | ---: | ---: | ---: | ---: | ---: |
-| 250 | 178 | 4.745 | 0.277 | 17.16x |
-| 1,000 | 607 | 28.493 | 3.437 | 8.29x |
-| 2,500 | 1,284 | 96.306 | 19.763 | 4.87x |
+| 250 | 178 | 4.798 | 0.272 | 17.66x |
+| 1,000 | 607 | 23.257 | 3.340 | 6.96x |
+| 2,500 | 1,284 | 75.396 | 17.121 | 4.40x |
 
-| Batch | Boxes/image | Workers | Serial C (ms) | Parallel C (ms) | Speedup |
+| Batch | Boxes/image | Workers | Serial native (ms) | Parallel native (ms) | Speedup |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 8 | 1,000 | 8 | 30.243 | 17.619 | 1.72x |
+| 8 | 1,000 | 8 | 27.595 | 9.995 | 2.76x |
 
-Timings are host-dependent. The committed benchmark is the source of truth and
-should be rerun on the deployment machine rather than treating these values as
-a universal guarantee.
+The declining single-image NMS speedup at larger input sizes is expected:
+greedy NMS remains quadratic in the worst case, while Python/NumPy validation
+and dispatch overhead matter proportionally less as the native comparison loop
+grows.
 
 ## Reproduction
 
 From the repository root:
 
 ```bash
-python -m nmss.build
+python -m fastvisionops.build
 python -m unittest discover -s tests -v
+python -m benchmarks.benchmark_preprocess
 python -m benchmarks.benchmark_bbox
+```
+
+Machine-readable runs:
+
+```bash
+python -m benchmarks.benchmark_preprocess --format json
 python -m benchmarks.benchmark_bbox --format json
 ```
 
-The last two commands produce Markdown and machine-readable results,
-respectively.
+Useful benchmark controls include `--warmup`, `--repeats`, `--threads`,
+`--batches`, `--sizes`, and `--workers`. Run on the deployment host for
+capacity planning rather than treating the recorded values as universal.
 
-## Findings and trade-offs
+## Improvements over the original repositories
 
-1. **The original binary was not reproducible.** A checked-in `.so` is tied to
-   an unknown compiler and ABI. It has been replaced with a source build.
-2. **The original C and Python thresholds disagreed.** C used `>` while Python
-   used `>=`. Both backends now retain scores exactly equal to the threshold.
-3. **Unsigned coordinates could underflow.** The native backend now accepts
-   `float64`, allowing negative and fractional coordinates safely.
-4. **Output was not deterministic for score ties.** Both backends now prefer the
-   lower original index when scores are equal.
-5. **Batch parallelism helps when each item is large enough.** Small items can
-   be dominated by thread scheduling, so `workers=1` remains available.
+1. **Unsafe allocation was removed.** FastPreProcess allocated arrays with
+   `new[]` but released them with scalar `delete`, which is undefined behavior.
+   FastVisionOps allocates output through NumPy and writes into owned buffers.
+2. **Input contracts are explicit.** Shape, dtype, statistics, channel
+   reversal, coordinates, scores, and thresholds are validated before native
+   execution.
+3. **Noncontiguous images are correct.** Inputs are made contiguous only when
+   the native backend requires it.
+4. **Nested OpenMP was removed.** The fused preprocessor uses one parallel loop
+   across batch and spatial positions.
+5. **The build is reproducible.** Hard-coded Python 3.9 paths, the broken
+   pybind11 gitlink, unused OpenCV, and checked-in build output are not part of
+   the combined package.
+6. **NMS semantics match.** NumPy and C retain scores equal to the threshold,
+   support negative/fractional coordinates, and resolve score ties identically.
+7. **Measured time is reported.** Every speedup table includes NumPy and native
+   milliseconds, not only a ratio.
 
-## Current limits
+## Limits and interpretation
 
-- The native backend currently targets Linux systems with GCC or Clang.
-- Greedy NMS remains quadratic in the worst case.
-- Mask NMS is vectorized NumPy only; there is no native mask backend yet.
-- GPU backends, Soft-NMS, DIoU-NMS, and prebuilt wheels are outside this
-  repository's current scope.
+- Timings are host-specific and sensitive to CPU frequency, memory bandwidth,
+  compiler, process contention, input distribution, and suppression rate.
+- The native build currently targets Unix-like systems with GCC or Clang.
+- The OpenMP fallback remains correct but is single-threaded and will have a
+  different performance profile.
+- Greedy NMS is quadratic in the worst case.
+- Mask NMS is vectorized NumPy only.
+- GPU kernels, resize/color conversion, Soft-NMS, DIoU-NMS, and prebuilt wheels
+  are outside this release.

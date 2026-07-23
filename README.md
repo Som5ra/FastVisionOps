@@ -1,56 +1,105 @@
-# NMSs
+# FastVisionOps
 
-[![CI](https://github.com/Som5ra/NMSs/actions/workflows/ci.yml/badge.svg)](https://github.com/Som5ra/NMSs/actions/workflows/ci.yml)
+[![CI](https://github.com/Som5ra/FastVisionOps/actions/workflows/ci.yml/badge.svg)](https://github.com/Som5ra/FastVisionOps/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB.svg)](https://www.python.org/)
-[![NumPy](https://img.shields.io/badge/backend-NumPy%20%2B%20C-4D77CF.svg)](https://numpy.org/)
+[![Backend](https://img.shields.io/badge/backend-NumPy%20%2B%20C-4D77CF.svg)](https://numpy.org/)
 
-**A compact, deterministic non-maximum suppression toolkit for bounding boxes
-and boolean masks.**
+**A compact, validated CPU toolkit for the preprocessing and postprocessing
+stages of vision inference.**
 
-NMSs provides a validated NumPy reference implementation and an optional
-rebuildable C backend. It supports single-class NMS, class-aware and
-class-unaware multiclass NMS, boolean-mask NMS, and concurrent batch execution
-without requiring a deep-learning framework.
+FastVisionOps combines the former FastPreProcess and NMSs projects behind one
+Python package and one rebuildable native library. It handles uint8 image
+layout conversion and normalization, bounding-box NMS, boolean-mask NMS,
+multiclass suppression, and batched execution without requiring a
+deep-learning framework.
 
-## Why NMSs
+## Why FastVisionOps
 
-- **Correct by construction:** shape, coordinate, dtype, finiteness, and
-  threshold checks fail early with actionable messages.
-- **Deterministic:** equal scores are resolved by original input index.
-- **Coordinate-safe:** negative and fractional `xyxy` coordinates work in both
-  Python and C.
-- **Fast:** the recorded native speedup is **4.87x–17.16x** for 250–2,500
-  boxes on the evaluation host.
-- **Reproducible:** the C library is built from source instead of shipping an
-  opaque platform-specific binary.
-- **Framework-independent:** NumPy is the only runtime dependency.
+- **One inference utility layer:** preprocessing and NMS share one install,
+  validation policy, test suite, native build, and benchmark workflow.
+- **Measured acceleration:** the fused native preprocessor completed a
+  427×640 image in **0.249 ms** versus **4.492 ms** for NumPy on the evaluation
+  host.
+- **Correct before fast:** every benchmark checks native output against the
+  NumPy reference before accepting a timing.
+- **Defensive inputs:** dtype, dimensionality, channel statistics, coordinates,
+  thresholds, and empty inputs are validated with actionable errors.
+- **Deterministic NMS:** equal scores are resolved by original input index.
+- **Reproducible native code:** the repository ships portable C source, not an
+  opaque ABI-specific binary.
+
+```mermaid
+flowchart LR
+    A["uint8 HWC / NHWC"] --> B["Layout + normalize"]
+    B --> C["Model inference"]
+    C --> D["Boxes, scores, masks"]
+    D --> E["Deterministic NMS"]
+```
 
 ## Installation
 
-Clone the repository and install the package:
+Install the NumPy implementation:
 
 ```bash
 python -m pip install .
 ```
 
-The NumPy bbox and mask implementations are immediately available. To compile
-the optional native bbox backend on Linux:
+Compile the optional native backend:
 
 ```bash
-python -m nmss.build
+python -m fastvisionops.build
 ```
 
-The native build requires GCC or Clang. Set `CC` or pass `--compiler` to select
-a specific compiler.
+The build requires GCC or Clang. OpenMP is enabled when supported and the
+builder automatically falls back to portable single-threaded C. Use `CC` or
+`--compiler` to choose a compiler; use `--no-openmp` for an explicit portable
+build.
 
 ## Quick start
 
-### Bounding-box NMS
+### Image preprocessing
 
 ```python
 import numpy as np
 
-from nmss import nms
+from fastvisionops import hwc_to_chw_normalize
+
+image = np.zeros((427, 640, 3), dtype=np.uint8)
+mean = [123.675, 116.28, 103.53]
+std = [58.395, 57.12, 57.375]
+
+tensor = hwc_to_chw_normalize(
+    image,
+    mean,
+    std,
+    flip_rb=True,
+)
+# float32, shape (3, 427, 640), C-contiguous
+```
+
+For the accelerated path:
+
+```python
+from fastvisionops import NativeBackend
+
+backend = NativeBackend()
+tensor = backend.hwc_to_chw_normalize(
+    image,
+    mean,
+    std,
+    flip_rb=True,
+    threads=8,
+)
+```
+
+Both single-image HWC and batched NHWC inputs are supported. `flip_rb=True`
+normalizes using the source-channel statistics and reverses the three output
+channels. Noncontiguous inputs are handled correctly.
+
+### Bounding-box NMS
+
+```python
+from fastvisionops import nms
 
 boxes = np.array(
     [
@@ -70,37 +119,14 @@ keep = nms(
 # array([0, 2])
 ```
 
-### Multiclass NMS
+Use `NativeBackend.nms` for native execution. `multiclass_nms` supports both
+class-aware and class-unaware suppression and returns globally score-ordered
+box and class indices.
+
+### Boolean-mask NMS
 
 ```python
-from nmss import multiclass_nms
-
-scores_by_class = np.array(
-    [
-        [0.90, 0.60],
-        [0.80, 0.95],
-        [0.70, 0.65],
-    ]
-)
-
-box_indices, class_ids = multiclass_nms(
-    boxes,
-    scores_by_class,
-    score_threshold=0.50,
-    iou_threshold=0.50,
-    class_aware=True,
-    max_detections=100,
-)
-```
-
-Class-aware mode suppresses boxes independently for every class. Class-unaware
-mode first assigns each box to its highest-scoring class, then suppresses
-across the combined set.
-
-### Mask NMS
-
-```python
-from nmss import mask_nms
+from fastvisionops import mask_nms
 
 masks = np.zeros((3, 64, 64), dtype=bool)
 masks[0, :20, :20] = True
@@ -111,130 +137,120 @@ keep = mask_nms(masks, scores, iou_threshold=0.50)
 # array([0, 2])
 ```
 
-Masks must use boolean dtype. They may have any spatial rank as long as their
-shapes match.
-
-## Native acceleration
-
-Build once, then use the API-compatible C backend:
-
-```python
-from nmss.c_backend import CBackend
-
-backend = CBackend()
-
-keep = backend.nms(
-    boxes,
-    scores,
-    score_threshold=0.50,
-    iou_threshold=0.50,
-)
-```
-
-For independent images, native calls can run concurrently because the C call
-releases Python's global interpreter lock:
-
-```python
-results = backend.batch_multiclass_nms(
-    boxes_batch,
-    scores_batch,
-    score_threshold=0.50,
-    iou_threshold=0.50,
-    workers=8,
-)
-```
-
-Each result is an `(indices, class_ids)` tuple. Use `workers=1` when
-deterministic single-thread execution or minimal scheduling overhead is more
-important than batch throughput.
-
-## Coordinate convention
-
-Boxes use `xyxy` order. Choose the geometry explicitly:
-
-| `offset` | Convention | Width |
-| ---: | --- | --- |
-| `0` | Continuous coordinates, default | `x2 - x1` |
-| `1` | Inclusive integer pixel coordinates | `x2 - x1 + 1` |
-
-All scores equal to `score_threshold` are retained. A candidate is suppressed
-only when `IoU > iou_threshold`; equality is retained.
+Masks must use boolean dtype and share the same spatial shape.
 
 ## Performance
 
-The benchmark checks C output against NumPy before timing. It uses two warm-up
-runs and the median of nine measured runs.
+The benchmark includes public API validation, allocation, and array
+preparation. It performs two warm-ups and reports the median of nine measured
+wall-clock runs.
 
-| Boxes | Boxes kept | NumPy (ms) | C (ms) | Speedup |
+### Fused image preprocessing
+
+Image shape: 427×640×3, 8 native threads.
+
+| Batch | NumPy (ms) | Native (ms) | Speedup |
+| ---: | ---: | ---: | ---: |
+| 1 | 4.492 | 0.249 | **18.07x** |
+| 8 | 26.263 | 1.888 | **13.91x** |
+| 32 | 139.105 | 9.758 | **14.25x** |
+
+### Bounding-box NMS
+
+| Boxes | Kept | NumPy (ms) | Native (ms) | Speedup |
 | ---: | ---: | ---: | ---: | ---: |
-| 250 | 178 | 4.745 | 0.277 | **17.16x** |
-| 1,000 | 607 | 28.493 | 3.437 | **8.29x** |
-| 2,500 | 1,284 | 96.306 | 19.763 | **4.87x** |
+| 250 | 178 | 4.798 | 0.272 | **17.66x** |
+| 1,000 | 607 | 23.257 | 3.340 | **6.96x** |
+| 2,500 | 1,284 | 75.396 | 17.121 | **4.40x** |
 
-Recorded on Linux x86_64 with Python 3.12.13, NumPy 2.3.5, GCC 13.3, and an
-Intel Xeon Platinum 8573C host. Performance depends on hardware, box
-distribution, suppression rate, compiler, and system load.
+Recorded on Linux x86_64 with Python 3.12.13, NumPy 2.3.5, GCC 13.3, and
+9 available Intel Xeon Platinum 8573C vCPUs. Results vary with hardware,
+compiler, input distribution, suppression rate, and system load.
 
 Reproduce the measurements:
 
 ```bash
+python -m benchmarks.benchmark_preprocess
 python -m benchmarks.benchmark_bbox
-python -m benchmarks.benchmark_bbox --format json
 ```
 
-See the [evaluation report](docs/evaluation.md) for the complete methodology,
-batch results, environment, and limitations.
+Add `--format json` for machine-readable output. See the
+[evaluation report](docs/evaluation.md) for methodology, environment, test
+evidence, and limitations.
 
-## Validation
+## Correctness and validation
 
 Run the complete suite:
 
 ```bash
-python -m nmss.build
+python -m fastvisionops.build
 python -m unittest discover -s tests -v
 ```
 
-Coverage includes:
+The 37 tests cover:
 
+- exact and randomized preprocessing equivalence;
+- RGB/BGR reversal, batches, empty batches, and noncontiguous images;
 - bbox and mask IoU behavior;
 - class-aware and class-unaware suppression;
-- score/IoU boundaries and coordinate offsets;
-- empty inputs and stable score ties;
+- thresholds, coordinate offsets, stable ties, and empty detections;
 - malformed input rejection;
-- randomized Python/C equivalence; and
+- randomized NumPy/native NMS equivalence; and
 - serial/concurrent batch equivalence.
 
-CI executes the suite on Python 3.9, 3.12, and 3.13.
+CI runs the suite and benchmark smoke tests on Python 3.9, 3.12, and 3.13.
 
-## API overview
+## API map
 
 | API | Purpose | Backend |
 | --- | --- | --- |
-| `nmss.nms` | Single-class bbox NMS | NumPy |
-| `nmss.multiclass_nms` | Aware or unaware bbox NMS | NumPy |
-| `nmss.mask_nms` | Single-class boolean-mask NMS | NumPy |
-| `nmss.multiclass_mask_nms` | Class-aware boolean-mask NMS | NumPy |
-| `nmss.c_backend.CBackend.nms` | Single-class bbox NMS | C |
-| `CBackend.multiclass_nms` | Class-aware bbox NMS | C |
-| `CBackend.batch_multiclass_nms` | Concurrent image batches | C |
+| `hwc_to_chw` | HWC → CHW layout conversion | NumPy |
+| `chw_channel_normalize` | Per-channel CHW normalization | NumPy |
+| `hwc_to_chw_normalize` | Fused HWC → normalized CHW | NumPy |
+| `hwc_to_chw_normalize_batched` | Fused NHWC → normalized NCHW | NumPy |
+| `NativeBackend.hwc_to_chw_normalize` | Fused single-image preprocessing | C / OpenMP |
+| `NativeBackend.hwc_to_chw_normalize_batched` | Fused batch preprocessing | C / OpenMP |
+| `nms` | Single-class bbox NMS | NumPy |
+| `multiclass_nms` | Aware or unaware bbox NMS | NumPy |
+| `mask_nms` / `multiclass_mask_nms` | Boolean-mask NMS | NumPy |
+| `NativeBackend.nms` / `multiclass_nms` | Bounding-box NMS | C |
+| `NativeBackend.batch_multiclass_nms` | Concurrent image batches | C |
+
+Standalone transpose and normalization remain NumPy operations because the
+fused path is the useful native hot path and avoids unnecessary intermediate
+arrays.
+
+## Migration
+
+New integrations should import from `fastvisionops`.
+
+| Previous project | Previous API | FastVisionOps API |
+| --- | --- | --- |
+| FastPreProcess | `fastpreprocess.hwc_to_chw_normalize` | `fastvisionops.hwc_to_chw_normalize` |
+| FastPreProcess | `fastpreprocess.hwc_to_chw_normalize_batched` | `fastvisionops.hwc_to_chw_normalize_batched` |
+| FastPreProcess | compiled fused functions | `fastvisionops.NativeBackend` methods |
+| NMSs | `nmss.nms` and related imports | `fastvisionops.nms` and related imports |
+| NMSs | `nmss.c_backend.CBackend` | `fastvisionops.NativeBackend` |
+
+The `nmss` package remains as a backward-compatible namespace and points to the
+same maintained implementation. The old unsafe FastPreProcess binary is not
+shipped; the replacement validates inputs, owns memory through NumPy, supports
+noncontiguous arrays, and removes the unused OpenCV and pybind11 dependencies.
 
 ## Repository layout
 
 ```text
-nmss/                   Maintained Python package and C source
+fastvisionops/          Primary package, native bindings, and C source
+nmss/                   Backward-compatible NMS namespace
 tests/                  Correctness and native-equivalence suite
-benchmarks/             Reproducible performance runner
+benchmarks/             Reproducible elapsed-time benchmarks
 docs/evaluation.md      Methodology, evidence, and limitations
-bbox-nms*/ mask-nms/    Backward-compatible import paths
+bbox-nms*/ mask-nms/    Legacy import adapters
 .github/workflows/      Python-version CI matrix
 ```
 
-The legacy modules retain their original public function names and use
-`offset=1` to preserve the old inclusive-pixel behavior. New integrations should
-import directly from `nmss`.
-
 ## Scope
 
-NMSs currently focuses on greedy CPU NMS. GPU kernels, Soft-NMS, DIoU-NMS,
-native mask kernels, and prebuilt platform wheels are intentionally left for
-future releases.
+FastVisionOps targets deterministic CPU inference utilities. GPU kernels,
+resize/color conversion, Soft-NMS, DIoU-NMS, native mask kernels, and prebuilt
+platform wheels are outside the current release.

@@ -9,6 +9,7 @@ from nmss.bbox import (
 )
 from nmss.mask import mask_iou, mask_nms, multiclass_mask_nms
 
+from .native import NativeBackend
 from .preprocess import (
     chw_channel_normalize,
     hwc_to_chw,
@@ -28,6 +29,7 @@ __all__ = [
     "multiclass_nms",
     "multiclass_nms_class_aware",
     "multiclass_nms_class_unaware",
+    "NativeBackend",
     "nms",
 ]
 

@@ -4,7 +4,7 @@ This directory preserves the original mask NMS function names. The maintained
 implementation is `nmss.mask` and requires only NumPy.
 
 ```python
-from nmss import mask_nms, multiclass_mask_nms
+from fastvisionops import mask_nms, multiclass_mask_nms
 ```
 
 Inputs use shape `(num_masks, ...)`, boolean dtype, and scores shaped

@@ -9,6 +9,7 @@ description = "Validated NumPy and native operations for vision inference"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.23"]
+keywords = ["computer-vision", "inference", "nms", "numpy", "preprocessing"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -17,6 +18,11 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+
+[project.urls]
+Documentation = "https://github.com/Som5ra/FastVisionOps#readme"
+Issues = "https://github.com/Som5ra/FastVisionOps/issues"
+Repository = "https://github.com/Som5ra/FastVisionOps"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "pytest-cov>=4"]
