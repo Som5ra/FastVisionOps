@@ -1,19 +1,12 @@
+# Legacy mask NMS API
 
+This directory preserves the original mask NMS function names. The maintained
+implementation is `nmss.mask` and requires only NumPy.
 
-
-### Mutli class mask NMS (class-aware)
-
-- Class-unaware: a proposal can belong to mutiple single class
-
-- inputs:
-    - masks: NDArray (num_masks, W, H) (type: Boolean)
-    - scores: NDArray (num_masks, num_classes) in [0, 1] 
-    - score_thr: float (score threshold of bounding box)
-    - nms_thr: float (intersection threshold of mask)
-- output:
-    - [NDArray of indices to keep, NDArray of class id]
-
+```python
+from fastvisionops import mask_nms, multiclass_mask_nms
 ```
-pip install numba
-pip install numpy
-```
+
+Inputs use shape `(num_masks, ...)`, boolean dtype, and scores shaped
+`(num_masks,)` or `(num_masks, num_classes)`. See the
+[root README](../README.md) for examples and semantics.
