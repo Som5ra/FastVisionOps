@@ -31,7 +31,7 @@ dev = ["pytest>=7", "pytest-cov>=4"]
 include = ["fastvisionops*", "nmss*"]
 
 [tool.setuptools.package-data]
-fastvisionops = ["csrc/*.c"]
+"fastvisionops.native" = ["csrc/*.c"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers"

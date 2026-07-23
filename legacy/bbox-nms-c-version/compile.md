@@ -12,5 +12,5 @@ Use a different compiler or output path when required:
 python -m fastvisionops.build --compiler clang --output /tmp/libfastvisionops.so
 ```
 
-The builder compiles `fastvisionops/csrc/vision_ops.c` with optimized,
+The builder compiles `fastvisionops/native/csrc/vision_ops.c` with optimized,
 reproducible flags and reports compiler errors directly.

@@ -1,91 +1,27 @@
-"""Build the optional FastVisionOps native backend."""
+"""Public native build API.
 
-from __future__ import annotations
+The implementation lives under :mod:`fastvisionops.native` alongside the
+backend and C source. This module preserves the original command and imports.
+"""
 
-import argparse
-import os
-from pathlib import Path
-import shutil
-import subprocess
-import sys
+from .native.build import (
+    DEFAULT_OUTPUT,
+    PACKAGE_ROOT,
+    SOURCE,
+    build_c_backend,
+    build_native_backend,
+    main,
+)
 
-
-PACKAGE_ROOT = Path(__file__).resolve().parent
-SOURCE = PACKAGE_ROOT / "csrc" / "vision_ops.c"
-DEFAULT_OUTPUT = PACKAGE_ROOT / "lib" / "libfastvisionops.so"
-
-
-def _compile(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, text=True, capture_output=True)
-
-
-def build_native_backend(
-    output: str | os.PathLike[str] | None = None,
-    *,
-    compiler: str | None = None,
-    openmp: bool = True,
-) -> Path:
-    """Compile the shared C library and return its path.
-
-    OpenMP is attempted by default. If the compiler does not support it, the
-    same source is rebuilt as a portable single-threaded library.
-    """
-    output_path = Path(output).resolve() if output else DEFAULT_OUTPUT
-    compiler = compiler or os.environ.get("CC", "cc")
-    if shutil.which(compiler) is None:
-        raise RuntimeError(
-            f"C compiler {compiler!r} was not found; install GCC or Clang "
-            "or set the CC environment variable"
-        )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    base_command = [
-        compiler,
-        "-O3",
-        "-std=c11",
-        "-DNDEBUG",
-        "-fPIC",
-        "-shared",
-        str(SOURCE),
-        "-lm",
-        "-o",
-        str(output_path),
-    ]
-    command = base_command[:1] + (["-fopenmp"] if openmp else []) + base_command[1:]
-    result = _compile(command)
-    if result.returncode and openmp:
-        result = _compile(base_command)
-    if result.returncode:
-        detail = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"native backend build failed: {detail}")
-    return output_path
-
-
-build_c_backend = build_native_backend
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Compile the optional FastVisionOps C backend."
-    )
-    parser.add_argument("--output", help="custom output library path")
-    parser.add_argument("--compiler", help="C compiler executable")
-    parser.add_argument(
-        "--no-openmp",
-        action="store_true",
-        help="build a portable single-threaded backend",
-    )
-    arguments = parser.parse_args(argv)
-    try:
-        output = build_native_backend(
-            arguments.output,
-            compiler=arguments.compiler,
-            openmp=not arguments.no_openmp,
-        )
-    except RuntimeError as error:
-        parser.exit(1, f"error: {error}\n")
-    print(output)
-    return 0
+__all__ = [
+    "DEFAULT_OUTPUT",
+    "PACKAGE_ROOT",
+    "SOURCE",
+    "build_c_backend",
+    "build_native_backend",
+    "main",
+]
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

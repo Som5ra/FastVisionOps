@@ -29,15 +29,28 @@ flowchart LR
 
 ## Install
 
+Install directly from GitHub over SSH:
+
 ```bash
-python -m pip install .
-python -m fastvisionops.build
+python -m pip install "git+ssh://git@github.com/Som5ra/FastVisionOps.git"
 ```
 
-The NumPy APIs work immediately after installation. The second command builds
-the optional native backend with GCC or Clang. It uses OpenMP when supported
-and otherwise retries as portable single-threaded C. Use `CC`, `--compiler`,
-or `--no-openmp` to control the build.
+The equivalent public HTTPS command does not require an SSH key:
+
+```bash
+python -m pip install "git+https://github.com/Som5ra/FastVisionOps.git"
+```
+
+For a local checkout, use `python -m pip install .`. Each command installs
+NumPy when needed and compiles the native backend into the wheel, so
+`NativeBackend()` works immediately. GCC or Clang is required; OpenMP is used
+when supported and otherwise falls back to portable single-threaded C.
+
+To pin a branch, tag, or commit, append its ref:
+
+```bash
+python -m pip install "git+https://github.com/Som5ra/FastVisionOps.git@<ref>"
+```
 
 ## Quick start
 
@@ -139,6 +152,20 @@ environment, results, and limitations.
 Standalone transpose and normalization remain NumPy operations; the fused
 native path avoids intermediate arrays and accelerates the useful hot path.
 
+## Repository layout
+
+| Path | Responsibility |
+| --- | --- |
+| `fastvisionops/preprocess/` | Validated NumPy layout conversion and normalization |
+| `fastvisionops/postprocess/` | Bounding-box and boolean-mask suppression |
+| `fastvisionops/native/` | ctypes bindings, builder, and colocated C source |
+| `fastvisionops/{bbox,mask,build}.py` | Stable compatibility import paths |
+| `nmss/` | Backward-compatible namespace for existing users |
+| `legacy/` | Original standalone adapters; excluded from installation |
+
+The maintained implementation flows one way: public APIs delegate to the
+stage package, while compatibility modules only re-export those functions.
+
 ## Validation
 
 ```bash
@@ -146,10 +173,11 @@ python -m fastvisionops.build
 python -m unittest discover -s tests -v
 ```
 
-The 41 tests cover exact and randomized NumPy/native equivalence, empty and
+The 47 tests cover exact and randomized NumPy/native equivalence, empty and
 noncontiguous inputs, channel reversal, deterministic ties, multiclass
-behavior, malformed controls, portable builds, and serial/concurrent batches.
-CI runs the suite and benchmark smoke tests on Python 3.9, 3.12, and 3.13.
+behavior, malformed controls, compatibility imports, package layout, portable
+builds, and serial/concurrent batches. CI runs the suite and benchmark smoke
+tests on Python 3.9, 3.12, and 3.13.
 
 ## Migration
 
