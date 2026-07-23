@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 typedef struct {
     size_t index;
     double score;
@@ -45,7 +49,7 @@ static double box_iou(
     return union_area > 0.0 ? intersection / union_area : 0.0;
 }
 
-size_t nmss_nms(
+size_t fvo_nms(
     const double *boxes,
     const double *scores,
     size_t count,
@@ -107,4 +111,43 @@ size_t nmss_nms(
     free(candidates);
     free(suppressed);
     return output_count;
+}
+
+void fvo_hwc_to_chw_normalize_u8(
+    const uint8_t *input,
+    size_t batch,
+    size_t height,
+    size_t width,
+    size_t channels,
+    const float *mean,
+    const float *std,
+    int flip_rb,
+    size_t num_threads,
+    float *output
+) {
+    const size_t pixels = batch * height * width;
+
+#ifdef _OPENMP
+    const int thread_count =
+        num_threads > 0 ? (int)num_threads : omp_get_max_threads();
+#pragma omp parallel for schedule(static) num_threads(thread_count)
+#else
+    (void)num_threads;
+#endif
+    for (size_t pixel = 0; pixel < pixels; ++pixel) {
+        const size_t batch_index = pixel / (height * width);
+        const size_t spatial_index = pixel % (height * width);
+        for (size_t source_channel = 0; source_channel < channels;
+             ++source_channel) {
+            const size_t destination_channel =
+                flip_rb ? channels - source_channel - 1 : source_channel;
+            const size_t input_index = pixel * channels + source_channel;
+            const size_t output_index =
+                (batch_index * channels + destination_channel)
+                * height * width + spatial_index;
+            output[output_index] =
+                ((float)input[input_index] - mean[source_channel])
+                / std[source_channel];
+        }
+    }
 }

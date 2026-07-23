@@ -95,7 +95,7 @@ class CBackendTests(unittest.TestCase):
             np.testing.assert_array_equal(serial_item[1], parallel_item[1])
 
     def test_missing_library_has_actionable_error(self):
-        with self.assertRaisesRegex(FileNotFoundError, "nmss.build"):
+        with self.assertRaisesRegex(FileNotFoundError, "fastvisionops.build"):
             CBackend("/definitely/missing/libnmss.so")
 
 

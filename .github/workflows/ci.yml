@@ -26,6 +26,6 @@ jobs:
       - name: Install package
         run: python -m pip install --upgrade pip && python -m pip install .
       - name: Build native backend
-        run: python -m nmss.build
+        run: python -m fastvisionops.build
       - name: Run test suite
         run: python -m unittest discover -s tests -v
