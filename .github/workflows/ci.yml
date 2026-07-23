@@ -29,3 +29,7 @@ jobs:
         run: python -m fastvisionops.build
       - name: Run test suite
         run: python -m unittest discover -s tests -v
+      - name: Smoke-test benchmark runners
+        run: |
+          python -m benchmarks.benchmark_bbox --sizes 16 64 --warmup 0 --repeats 1 --batch-size 2 --batch-boxes 32 --workers 2 --format json
+          python -m benchmarks.benchmark_preprocess --batches 1 2 --height 32 --width 32 --warmup 0 --repeats 1 --threads 2 --format json

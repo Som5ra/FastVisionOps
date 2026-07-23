@@ -11,9 +11,9 @@ import time
 
 import numpy as np
 
-from nmss.bbox import nms as python_nms
-from nmss.build import DEFAULT_OUTPUT, build_c_backend
-from nmss.c_backend import CBackend
+from fastvisionops.bbox import nms as python_nms
+from fastvisionops.build import DEFAULT_OUTPUT, build_native_backend
+from fastvisionops.native import NativeBackend
 
 
 def generate_inputs(count: int, seed: int):
@@ -44,8 +44,8 @@ def run_benchmark(
     repeats: int,
 ):
     if not DEFAULT_OUTPUT.is_file():
-        build_c_backend()
-    backend = CBackend()
+        build_native_backend()
+    backend = NativeBackend()
     results = []
     for position, count in enumerate(sizes):
         boxes, scores = generate_inputs(count, seed + position)
@@ -83,7 +83,7 @@ def run_batch_benchmark(
     repeats: int,
     workers: int,
 ):
-    backend = CBackend()
+    backend = NativeBackend()
     boxes_batch = []
     scores_batch = []
     for image_index in range(batch_size):
