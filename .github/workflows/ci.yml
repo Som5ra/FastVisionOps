@@ -25,6 +25,31 @@ jobs:
           cache: pip
       - name: Install package
         run: python -m pip install --upgrade pip && python -m pip install .
+      - name: Verify installed native package
+        working-directory: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import numpy as np
+
+          from fastvisionops import NativeBackend
+
+          backend = NativeBackend()
+          assert backend.library_path.name.startswith("_native")
+          np.testing.assert_array_equal(
+              backend.nms(
+                  [[0, 0, 10, 10], [1, 1, 9, 9], [20, 20, 30, 30]],
+                  [0.9, 0.8, 0.7],
+              ),
+              [0, 2],
+          )
+          output = backend.hwc_to_chw_normalize(
+              np.zeros((4, 5, 3), dtype=np.uint8),
+              [0, 0, 0],
+              [1, 1, 1],
+              threads=2,
+          )
+          assert output.shape == (3, 4, 5)
+          PY
       - name: Build native backend
         run: python -m fastvisionops.build
       - name: Run test suite
