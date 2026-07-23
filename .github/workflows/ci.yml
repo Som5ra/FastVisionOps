@@ -52,6 +52,31 @@ jobs:
           PY
       - name: Build native backend
         run: python -m fastvisionops.build
+      - name: Verify portable native build
+        run: |
+          python -m fastvisionops.build \
+            --no-openmp \
+            --output "${RUNNER_TEMP}/libfastvisionops-portable.so"
+          python - <<'PY'
+          import os
+          import numpy as np
+
+          from fastvisionops import NativeBackend
+
+          backend = NativeBackend(
+              os.path.join(
+                  os.environ["RUNNER_TEMP"],
+                  "libfastvisionops-portable.so",
+              )
+          )
+          np.testing.assert_array_equal(
+              backend.nms(
+                  [[0, 0, 10, 10], [1, 1, 9, 9], [20, 20, 30, 30]],
+                  [0.9, 0.8, 0.7],
+              ),
+              [0, 2],
+          )
+          PY
       - name: Run test suite
         run: python -m unittest discover -s tests -v
       - name: Smoke-test benchmark runners

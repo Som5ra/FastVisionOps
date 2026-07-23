@@ -6,9 +6,19 @@ from fastvisionops import nms as public_nms
 from fastvisionops.bbox import nms as bbox_compat_nms
 from fastvisionops.build import SOURCE, build_native_backend
 from fastvisionops.mask import mask_nms as mask_compat_nms
-from fastvisionops.native import NativeBackend
-from fastvisionops.native.backend import NativeBackend as BackendImplementation
+from fastvisionops.native import (
+    DEFAULT_OUTPUT,
+    NativeBackend,
+    hwc_to_chw_normalize as native_hwc_to_chw_normalize,
+    hwc_to_chw_normalize_batched as native_hwc_to_chw_normalize_batched,
+)
+from fastvisionops.native.backend import (
+    NativeBackend as BackendImplementation,
+    hwc_to_chw_normalize as native_hwc_to_chw_normalize_implementation,
+    hwc_to_chw_normalize_batched as native_batched_implementation,
+)
 from fastvisionops.native.build import (
+    DEFAULT_OUTPUT as native_default_output,
     build_native_backend as native_build_native_backend,
 )
 from fastvisionops.postprocess import mask_nms as postprocess_mask_nms
@@ -47,6 +57,15 @@ class PackageLayoutTests(unittest.TestCase):
     def test_preprocess_and_native_packages_expose_implementations(self):
         self.assertIs(hwc_to_chw_normalize, numpy_hwc_to_chw_normalize)
         self.assertIs(NativeBackend, BackendImplementation)
+        self.assertIs(
+            native_hwc_to_chw_normalize,
+            native_hwc_to_chw_normalize_implementation,
+        )
+        self.assertIs(
+            native_hwc_to_chw_normalize_batched,
+            native_batched_implementation,
+        )
+        self.assertIs(DEFAULT_OUTPUT, native_default_output)
         self.assertIs(build_native_backend, native_build_native_backend)
 
     def test_native_source_is_colocated_with_backend(self):
