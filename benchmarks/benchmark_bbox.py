@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import statistics
 import time
@@ -73,7 +74,74 @@ def run_benchmark(
     return results
 
 
-def render_markdown(results) -> str:
+def run_batch_benchmark(
+    batch_size: int,
+    boxes_per_image: int,
+    *,
+    seed: int,
+    warmup: int,
+    repeats: int,
+    workers: int,
+):
+    backend = CBackend()
+    boxes_batch = []
+    scores_batch = []
+    for image_index in range(batch_size):
+        boxes, scores = generate_inputs(boxes_per_image, seed + image_index)
+        boxes_batch.append(boxes)
+        scores_batch.append(scores[:, None])
+
+    serial = backend.batch_multiclass_nms(
+        boxes_batch,
+        scores_batch,
+        0.25,
+        0.5,
+        workers=1,
+    )
+    parallel = backend.batch_multiclass_nms(
+        boxes_batch,
+        scores_batch,
+        0.25,
+        0.5,
+        workers=workers,
+    )
+    for serial_item, parallel_item in zip(serial, parallel):
+        np.testing.assert_array_equal(serial_item[0], parallel_item[0])
+        np.testing.assert_array_equal(serial_item[1], parallel_item[1])
+
+    serial_ms = median_milliseconds(
+        lambda: backend.batch_multiclass_nms(
+            boxes_batch,
+            scores_batch,
+            0.25,
+            0.5,
+            workers=1,
+        ),
+        warmup=warmup,
+        repeats=repeats,
+    )
+    parallel_ms = median_milliseconds(
+        lambda: backend.batch_multiclass_nms(
+            boxes_batch,
+            scores_batch,
+            0.25,
+            0.5,
+            workers=workers,
+        ),
+        warmup=warmup,
+        repeats=repeats,
+    )
+    return {
+        "batch_size": batch_size,
+        "boxes_per_image": boxes_per_image,
+        "workers": workers,
+        "serial_ms": serial_ms,
+        "parallel_ms": parallel_ms,
+        "speedup": serial_ms / parallel_ms,
+    }
+
+
+def render_markdown(results, batch_result) -> str:
     lines = [
         "| Boxes | Kept | NumPy (ms) | C (ms) | Speedup |",
         "| ---: | ---: | ---: | ---: | ---: |",
@@ -82,6 +150,18 @@ def render_markdown(results) -> str:
         "| {boxes} | {kept} | {python_ms:.3f} | "
         "{native_ms:.3f} | {speedup:.2f}x |".format(**result)
         for result in results
+    )
+    lines.extend(
+        [
+            "",
+            "| Batch | Boxes/image | Workers | Serial C (ms) | "
+            "Parallel C (ms) | Speedup |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| {batch_size} | {boxes_per_image} | {workers} | "
+            "{serial_ms:.3f} | {parallel_ms:.3f} | {speedup:.2f}x |".format(
+                **batch_result
+            ),
+        ]
     )
     return "\n".join(lines)
 
@@ -92,6 +172,13 @@ def main(argv=None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=9)
+    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-boxes", type=int, default=1000)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=min(8, os.cpu_count() or 1),
+    )
     parser.add_argument(
         "--format",
         choices=("markdown", "json"),
@@ -102,12 +189,22 @@ def main(argv=None) -> int:
         parser.error("all sizes must be positive")
     if arguments.warmup < 0 or arguments.repeats < 1:
         parser.error("warmup must be non-negative and repeats must be positive")
+    if min(arguments.batch_size, arguments.batch_boxes, arguments.workers) < 1:
+        parser.error("batch size, batch boxes, and workers must be positive")
 
     results = run_benchmark(
         arguments.sizes,
         seed=arguments.seed,
         warmup=arguments.warmup,
         repeats=arguments.repeats,
+    )
+    batch_result = run_batch_benchmark(
+        arguments.batch_size,
+        arguments.batch_boxes,
+        seed=arguments.seed + len(arguments.sizes),
+        warmup=arguments.warmup,
+        repeats=arguments.repeats,
+        workers=arguments.workers,
     )
     if arguments.format == "json":
         print(
@@ -117,12 +214,13 @@ def main(argv=None) -> int:
                     "platform": platform.platform(),
                     "numpy": np.__version__,
                     "results": results,
+                    "batch_result": batch_result,
                 },
                 indent=2,
             )
         )
     else:
-        print(render_markdown(results))
+        print(render_markdown(results, batch_result))
     return 0
 
 
