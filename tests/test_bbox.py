@@ -60,6 +60,16 @@ class BoundingBoxNmsTests(unittest.TestCase):
             0,
         )
 
+    def test_max_detections_requires_an_integer(self):
+        for value in (True, 1.5, "1"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "max_detections"):
+                    nms(
+                        self.boxes,
+                        self.scores,
+                        max_detections=value,
+                    )
+
     def test_bbox_iou_handles_zero_area(self):
         actual = bbox_iou(
             np.zeros(4),

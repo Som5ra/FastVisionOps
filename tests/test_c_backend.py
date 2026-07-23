@@ -94,6 +94,20 @@ class CBackendTests(unittest.TestCase):
             np.testing.assert_array_equal(serial_item[0], parallel_item[0])
             np.testing.assert_array_equal(serial_item[1], parallel_item[1])
 
+    def test_workers_require_a_positive_integer(self):
+        boxes = [np.array([[0.0, 0.0, 1.0, 1.0]])]
+        scores = [np.array([[1.0]])]
+        for workers in (True, 1.5, 0):
+            with self.subTest(workers=workers):
+                with self.assertRaisesRegex(ValueError, "workers"):
+                    self.backend.batch_multiclass_nms(
+                        boxes,
+                        scores,
+                        workers=workers,
+                    )
+        with self.assertRaisesRegex(ValueError, "workers"):
+            self.backend.batch_multiclass_nms([], [], workers=0)
+
     def test_missing_library_has_actionable_error(self):
         with self.assertRaisesRegex(FileNotFoundError, "fastvisionops.build"):
             CBackend("/definitely/missing/libnmss.so")

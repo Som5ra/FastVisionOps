@@ -7,6 +7,7 @@ from numpy.typing import ArrayLike, NDArray
 
 from ._validation import (
     validate_boxes,
+    validate_max_detections,
     validate_offset,
     validate_scores,
     validate_threshold,
@@ -66,8 +67,7 @@ def nms(
     score_threshold = validate_threshold("score_threshold", score_threshold)
     iou_threshold = validate_threshold("iou_threshold", iou_threshold)
     offset = validate_offset(offset)
-    if max_detections is not None and max_detections < 0:
-        raise ValueError("max_detections must be non-negative or None")
+    max_detections = validate_max_detections(max_detections)
 
     candidate_indices = np.flatnonzero(scores_array >= score_threshold)
     if candidate_indices.size == 0 or max_detections == 0:
@@ -114,8 +114,7 @@ def multiclass_nms_class_aware(
     score_threshold = validate_threshold("score_threshold", score_threshold)
     iou_threshold = validate_threshold("iou_threshold", iou_threshold)
     offset = validate_offset(offset)
-    if max_detections is not None and max_detections < 0:
-        raise ValueError("max_detections must be non-negative or None")
+    max_detections = validate_max_detections(max_detections)
 
     box_parts: list[NDArray[np.int64]] = []
     class_parts: list[NDArray[np.int64]] = []
@@ -161,8 +160,7 @@ def multiclass_nms_class_unaware(
     score_threshold = validate_threshold("score_threshold", score_threshold)
     iou_threshold = validate_threshold("iou_threshold", iou_threshold)
     offset = validate_offset(offset)
-    if max_detections is not None and max_detections < 0:
-        raise ValueError("max_detections must be non-negative or None")
+    max_detections = validate_max_detections(max_detections)
     if len(boxes_array) == 0:
         empty = np.empty(0, dtype=np.int64)
         return empty, empty.copy()

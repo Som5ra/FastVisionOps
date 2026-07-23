@@ -16,6 +16,7 @@ from numpy.typing import ArrayLike, NDArray
 from nmss._validation import (
     validate_batch,
     validate_boxes,
+    validate_max_detections,
     validate_offset,
     validate_scores,
     validate_threshold,
@@ -79,8 +80,7 @@ class NativeBackend:
         )
         iou_threshold = validate_threshold("iou_threshold", iou_threshold)
         offset = validate_offset(offset)
-        if max_detections is not None and max_detections < 0:
-            raise ValueError("max_detections must be non-negative or None")
+        max_detections = validate_max_detections(max_detections)
         if len(boxes_array) == 0 or max_detections == 0:
             return np.empty(0, dtype=np.int64)
 
@@ -113,8 +113,7 @@ class NativeBackend:
         """Run class-aware NMS in C and globally sort the detections."""
         boxes_array = validate_boxes(boxes)
         scores_array = validate_scores(scores, len(boxes_array), ndim=2)
-        if max_detections is not None and max_detections < 0:
-            raise ValueError("max_detections must be non-negative or None")
+        max_detections = validate_max_detections(max_detections)
 
         box_parts: list[NDArray[np.int64]] = []
         class_parts: list[NDArray[np.int64]] = []
@@ -158,12 +157,17 @@ class NativeBackend:
     ) -> list[tuple[NDArray[np.int64], NDArray[np.int64]]]:
         """Run independent images concurrently."""
         validate_batch(boxes, scores)
+        if workers is None:
+            workers = min(max(len(boxes), 1), os.cpu_count() or 1)
+        if (
+            isinstance(workers, (bool, np.bool_))
+            or not isinstance(workers, (int, np.integer))
+            or workers < 1
+        ):
+            raise ValueError("workers must be a positive integer or None")
+        workers = int(workers)
         if not boxes:
             return []
-        if workers is None:
-            workers = min(len(boxes), os.cpu_count() or 1)
-        if workers < 1:
-            raise ValueError("workers must be at least 1")
 
         def run(item: tuple[ArrayLike, ArrayLike]):
             image_boxes, image_scores = item
@@ -201,8 +205,12 @@ class NativeBackend:
             isinstance(threads, (bool, np.bool_))
             or not isinstance(threads, (int, np.integer))
             or threads < 0
+            or threads > np.iinfo(np.int32).max
         ):
-            raise ValueError("threads must be a non-negative integer or None")
+            raise ValueError(
+                "threads must be an integer between 0 and 2147483647 or None"
+            )
+        threads = int(threads)
 
         contiguous_input = np.ascontiguousarray(image_array)
         batch, height, width, channels = contiguous_input.shape

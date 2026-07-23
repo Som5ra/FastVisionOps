@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from ._validation import (
+    validate_max_detections,
     validate_masks,
     validate_scores,
     validate_threshold,
@@ -50,8 +51,7 @@ def mask_nms(
     scores_array = validate_scores(scores, len(masks_array), ndim=1)
     score_threshold = validate_threshold("score_threshold", score_threshold)
     iou_threshold = validate_threshold("iou_threshold", iou_threshold)
-    if max_detections is not None and max_detections < 0:
-        raise ValueError("max_detections must be non-negative or None")
+    max_detections = validate_max_detections(max_detections)
 
     candidates = np.flatnonzero(scores_array >= score_threshold)
     if candidates.size == 0 or max_detections == 0:
@@ -87,8 +87,7 @@ def multiclass_mask_nms(
     scores_array = validate_scores(scores, len(masks_array), ndim=2)
     score_threshold = validate_threshold("score_threshold", score_threshold)
     iou_threshold = validate_threshold("iou_threshold", iou_threshold)
-    if max_detections is not None and max_detections < 0:
-        raise ValueError("max_detections must be non-negative or None")
+    max_detections = validate_max_detections(max_detections)
 
     mask_parts: list[NDArray[np.int64]] = []
     class_parts: list[NDArray[np.int64]] = []

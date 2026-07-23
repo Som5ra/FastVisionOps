@@ -54,6 +54,14 @@ class MaskNmsTests(unittest.TestCase):
         )
         np.testing.assert_array_equal(actual, [0, 1])
 
+    def test_max_detections_requires_an_integer(self):
+        with self.assertRaisesRegex(ValueError, "max_detections"):
+            mask_nms(
+                self.masks,
+                self.scores,
+                max_detections=1.5,
+            )
+
     def test_non_boolean_masks_are_rejected(self):
         with self.assertRaises(TypeError):
             mask_nms(self.masks.astype(np.uint8), self.scores)

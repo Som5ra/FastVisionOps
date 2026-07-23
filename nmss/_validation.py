@@ -22,6 +22,18 @@ def validate_offset(offset: float) -> float:
     return offset
 
 
+def validate_max_detections(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if (
+        isinstance(value, (bool, np.bool_))
+        or not isinstance(value, (int, np.integer))
+        or value < 0
+    ):
+        raise ValueError("max_detections must be a non-negative integer or None")
+    return int(value)
+
+
 def validate_boxes(boxes: ArrayLike) -> NDArray[np.float64]:
     result = np.ascontiguousarray(boxes, dtype=np.float64)
     if result.ndim != 2 or result.shape[1:] != (4,):

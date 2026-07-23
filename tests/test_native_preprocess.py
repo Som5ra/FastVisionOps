@@ -99,13 +99,15 @@ class NativePreprocessTests(unittest.TestCase):
 
     def test_invalid_threads_are_rejected(self):
         image = np.zeros((1, 1, 3), dtype=np.uint8)
-        with self.assertRaisesRegex(ValueError, "threads"):
-            self.backend.hwc_to_chw_normalize(
-                image,
-                [0, 0, 0],
-                [1, 1, 1],
-                threads=-1,
-            )
+        for threads in (-1, True, 1.5, 2**31):
+            with self.subTest(threads=threads):
+                with self.assertRaisesRegex(ValueError, "threads"):
+                    self.backend.hwc_to_chw_normalize(
+                        image,
+                        [0, 0, 0],
+                        [1, 1, 1],
+                        threads=threads,
+                    )
 
     def test_missing_library_has_actionable_error(self):
         with self.assertRaisesRegex(FileNotFoundError, "fastvisionops.build"):
