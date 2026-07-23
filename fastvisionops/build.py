@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from importlib.machinery import EXTENSION_SUFFIXES
 import os
 from pathlib import Path
 import shutil
@@ -12,7 +13,19 @@ import sys
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 SOURCE = PACKAGE_ROOT / "csrc" / "vision_ops.c"
-DEFAULT_OUTPUT = PACKAGE_ROOT / "lib" / "libfastvisionops.so"
+SOURCE_OUTPUT = PACKAGE_ROOT / "lib" / "libfastvisionops.so"
+
+
+def _default_output() -> Path:
+    """Prefer an installed wheel library, then the source-tree build."""
+    for suffix in EXTENSION_SUFFIXES:
+        installed_library = PACKAGE_ROOT / f"_native{suffix}"
+        if installed_library.is_file():
+            return installed_library
+    return SOURCE_OUTPUT
+
+
+DEFAULT_OUTPUT = _default_output()
 
 
 def _compile(command: list[str]) -> subprocess.CompletedProcess[str]:
