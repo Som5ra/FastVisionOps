@@ -1,6 +1,6 @@
-"""Bounding-box operations exposed under the FastVisionOps namespace."""
+"""Compatibility import for :mod:`fastvisionops.postprocess.bbox`."""
 
-from nmss.bbox import (
+from .postprocess.bbox import (
     bbox_iou,
     multiclass_nms,
     multiclass_nms_class_aware,

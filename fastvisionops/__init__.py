@@ -2,14 +2,14 @@
 
 from typing import TYPE_CHECKING
 
-from nmss.bbox import (
+from .postprocess.bbox import (
     bbox_iou,
     multiclass_nms,
     multiclass_nms_class_aware,
     multiclass_nms_class_unaware,
     nms,
 )
-from nmss.mask import mask_iou, mask_nms, multiclass_mask_nms
+from .postprocess.mask import mask_iou, mask_nms, multiclass_mask_nms
 
 from .preprocess import (
     chw_channel_normalize,

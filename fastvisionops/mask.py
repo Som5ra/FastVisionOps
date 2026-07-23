@@ -1,6 +1,6 @@
-"""Mask operations exposed under the FastVisionOps namespace."""
+"""Compatibility import for :mod:`fastvisionops.postprocess.mask`."""
 
-from nmss.mask import (
+from .postprocess.mask import (
     mask_iou,
     mask_nms,
     mask_nms_cpu,

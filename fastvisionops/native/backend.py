@@ -13,7 +13,7 @@ import numpy as np
 from numpy.ctypeslib import ndpointer
 from numpy.typing import ArrayLike, NDArray
 
-from nmss._validation import (
+from .._validation import (
     validate_batch,
     validate_boxes,
     validate_max_detections,
@@ -22,8 +22,8 @@ from nmss._validation import (
     validate_threshold,
 )
 
+from ..preprocess import _validate_flip, _validate_image, _validate_statistics
 from .build import DEFAULT_OUTPUT
-from .preprocess import _validate_flip, _validate_image, _validate_statistics
 
 
 class NativeBackend:

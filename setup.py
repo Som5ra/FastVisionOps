@@ -10,7 +10,7 @@ from setuptools.command.build_ext import build_ext
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-BUILD_HELPER = PROJECT_ROOT / "fastvisionops" / "build.py"
+BUILD_HELPER = PROJECT_ROOT / "fastvisionops" / "native" / "build.py"
 
 
 def _load_build_helper():
@@ -41,7 +41,7 @@ setup(
     ext_modules=[
         Extension(
             "fastvisionops._native",
-            sources=["fastvisionops/csrc/vision_ops.c"],
+            sources=["fastvisionops/native/csrc/vision_ops.c"],
         )
     ],
     cmdclass={"build_ext": CtypesBuildExt},
